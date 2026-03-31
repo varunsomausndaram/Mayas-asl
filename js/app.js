@@ -262,7 +262,7 @@ const app = (() => {
       <h3>How to Sign "${letter}"</h3>
       <p>${data.description}</p>
     `;
-    document.getElementById('hand-diagram').innerHTML = HandSigns.getSVG(letter);
+    document.getElementById('hand-diagram').innerHTML = HandSigns.getImgTag(letter, 'detail');
     document.getElementById('finger-checklist').innerHTML = `
       <h4>Hand Position:</h4>
       ${data.fingers.split('. ').map(f => f.trim()).filter(Boolean).map(f =>

@@ -301,12 +301,37 @@ html, body {
 }
 .letter-card .letter-svg {
   width: 48px;
-  height: 60px;
+  height: 56px;
   margin: 4px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .letter-card .letter-svg svg {
   width: 100%;
   height: 100%;
+}
+.asl-sign-img {
+  width: 48px;
+  height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+.asl-sign-img.detail {
+  width: 140px;
+  height: 180px;
+}
+.asl-fallback {
+  width: 48px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--primary);
+  background: #eef2ff;
+  border-radius: 8px;
 }
 .letter-card .letter-emoji {
   font-size: 24px;
@@ -356,11 +381,11 @@ html, body {
 
 .hand-diagram {
   background: white;
-  padding: 16px;
+  padding: 20px;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   text-align: center;
-  min-height: 140px;
+  min-height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -368,6 +393,11 @@ html, body {
 .hand-diagram svg {
   width: 120px;
   height: 160px;
+}
+.hand-diagram .asl-fallback {
+  width: 100px;
+  height: 120px;
+  font-size: 64px;
 }
 
 .finger-checklist {
