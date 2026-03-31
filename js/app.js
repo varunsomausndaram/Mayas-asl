@@ -244,7 +244,7 @@ const app = (() => {
       card.innerHTML = `
         ${learned ? '<span class="learned-check">✅</span>' : ''}
         <div class="letter-big">${letter}</div>
-        <div class="letter-emoji">${data.emoji}</div>
+        <div class="letter-svg">${HandSigns.getSVG(letter)}</div>
         <span class="letter-difficulty ${diffClass}">${data.difficulty}</span>
       `;
       grid.appendChild(card);
@@ -262,7 +262,7 @@ const app = (() => {
       <h3>How to Sign "${letter}"</h3>
       <p>${data.description}</p>
     `;
-    document.getElementById('hand-diagram').textContent = data.emoji;
+    document.getElementById('hand-diagram').innerHTML = HandSigns.getSVG(letter);
     document.getElementById('finger-checklist').innerHTML = `
       <h4>Hand Position:</h4>
       ${data.fingers.split('. ').map(f => f.trim()).filter(Boolean).map(f =>
