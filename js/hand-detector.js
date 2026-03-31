@@ -11,7 +11,7 @@ const HandDetector = (() => {
   let isRunning = false;
   let animFrameId = null;
   let lastDetectionTime = 0;
-  const MIN_INTERVAL = 80; // ~12fps to save battery on mobile
+  const MIN_INTERVAL = 50; // ~20fps — iPhone 16 Pro handles this fine
   let onResultCallback = null;
   let currentVideo = null;
   let currentCanvas = null;

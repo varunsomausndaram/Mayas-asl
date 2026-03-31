@@ -240,15 +240,18 @@ const ASLClassifier = (() => {
   function getFingerState(lm) {
     const state = {};
 
-    // For each finger, check if it's extended
-    // Thumb: compare tip to IP joint relative to MCP
-    const thumbExtended = dist2d(lm[4], lm[9]) > dist2d(lm[3], lm[9]);
-    state.thumbOut = thumbExtended;
+    // === DISTANCE-BASED finger detection (rotation-invariant) ===
+    // A finger is "extended" if tip is farther from wrist than its PIP joint
+    // A finger is "curled" if tip is closer to wrist than its MCP joint
 
-    // Check if thumb tip is above (lower y) or below fingers
-    state.thumbUp = lm[4].y < lm[3].y;
+    // Thumb: tip farther from middle-MCP than IP joint is
+    const thumbTipDist = dist(lm[4], lm[9]);
+    const thumbIPDist = dist(lm[3], lm[9]);
+    state.thumbOut = thumbTipDist > thumbIPDist * 0.85;
 
-    // Other fingers: tip is above PIP (lower y = higher on screen)
+    // Thumb up check (relative to wrist→middle-MCP direction, not absolute y)
+    state.thumbUp = dist(lm[4], lm[0]) > dist(lm[3], lm[0]);
+
     const fingers = [
       { name: 'index', tip: 8, pip: 6, mcp: 5, dip: 7 },
       { name: 'middle', tip: 12, pip: 10, mcp: 9, dip: 11 },
@@ -257,11 +260,15 @@ const ASLClassifier = (() => {
     ];
 
     for (const f of fingers) {
-      // Extended if tip is above (y is less than) PIP
-      state[f.name + 'Up'] = lm[f.tip].y < lm[f.pip].y;
-      // Curled if tip is below MCP
-      state[f.name + 'Curled'] = lm[f.tip].y > lm[f.mcp].y;
-      // Bent: tip is between PIP and MCP
+      const tipToWrist = dist(lm[f.tip], lm[0]);
+      const pipToWrist = dist(lm[f.pip], lm[0]);
+      const mcpToWrist = dist(lm[f.mcp], lm[0]);
+
+      // Extended: tip is farther from wrist than PIP
+      state[f.name + 'Up'] = tipToWrist > pipToWrist * 1.05;
+      // Curled: tip is closer to wrist than MCP
+      state[f.name + 'Curled'] = tipToWrist < mcpToWrist * 1.05;
+      // Bent: neither fully extended nor fully curled
       state[f.name + 'Bent'] = !state[f.name + 'Up'] && !state[f.name + 'Curled'];
       // Curl angle at PIP
       state[f.name + 'Angle'] = angle(lm[f.mcp], lm[f.pip], lm[f.dip]);
@@ -302,11 +309,13 @@ const ASLClassifier = (() => {
 
     state.allCurled = state.indexCurled && state.middleCurled && state.ringCurled && state.pinkyCurled;
 
-    // Hand orientation — is it pointing sideways?
-    state.handPointingSide = Math.abs(lm[9].x - lm[0].x) > Math.abs(lm[9].y - lm[0].y);
+    // Hand orientation — use wrist-to-middle-MCP vector
+    const dx = lm[9].x - lm[0].x;
+    const dy = lm[9].y - lm[0].y;
+    state.handPointingSide = Math.abs(dx) > Math.abs(dy) * 1.2;
 
-    // Is hand pointing down?
-    state.handPointingDown = lm[9].y > lm[0].y;
+    // Is hand pointing down? (middle MCP below wrist in normalized coords)
+    state.handPointingDown = dy > 0.3;
 
     return state;
   }
@@ -330,27 +339,25 @@ const ASLClassifier = (() => {
     // ===== FIST-BASED LETTERS: A, S, T, E, M, N =====
     if (s.allCurled || s.extCount === 0) {
       // All fingers down — it's a fist variant
-      if (s.thumbOut && s.thumbUp) {
-        addScore('A', 5, 'fist + thumb side up');
+      if (s.thumbOut) {
+        addScore('A', 6, 'fist + thumb out');
+      } else {
+        // Thumb is NOT out — distinguish S, T, E, M, N
+        if (s.thumbToIndex < 0.3) {
+          addScore('T', 5, 'thumb between index/middle');
+        } else if (s.thumbToIndex < 0.45 && s.thumbToMiddle < 0.45) {
+          addScore('E', 4, 'fingertips near thumb');
+        } else {
+          addScore('S', 5, 'fist + thumb across front');
+        }
+        addScore('M', 1, 'fist variant');
+        addScore('N', 1, 'fist variant');
       }
-      if (!s.thumbOut && !s.thumbUp) {
-        addScore('S', 4, 'fist + thumb across front');
-      }
-      if (s.thumbToIndex < 0.4) {
-        addScore('T', 3, 'thumb between index/middle');
-      }
-      if (!s.thumbOut) {
-        addScore('E', 2, 'fingertips near thumb');
-        addScore('M', 1.5, 'fist variant');
-        addScore('N', 1.5, 'fist variant');
-      }
-      addScore('S', 2, 'general fist');
-      addScore('A', 1.5, 'general fist');
     }
 
     // ===== A: Fist with thumb on side =====
     if (s.allCurled && s.thumbOut) {
-      addScore('A', 4, 'thumb out side');
+      addScore('A', 3, 'thumb out side');
     }
 
     // ===== B: Four fingers up, together =====
@@ -380,10 +387,10 @@ const ASLClassifier = (() => {
 
     // ===== D: Index up, others form circle with thumb =====
     if (s.indexUp && !s.middleUp && !s.ringUp && !s.pinkyUp) {
-      if (s.thumbToMiddle < 0.4) {
-        addScore('D', 6, 'index up + others touch thumb');
-      } else {
-        addScore('D', 3, 'index up alone');
+      if (s.thumbToMiddle < 0.4 && !s.handPointingSide && !s.handPointingDown) {
+        addScore('D', 7, 'index up + others touch thumb');
+      } else if (!s.handPointingSide && !s.handPointingDown && s.thumbOut) {
+        addScore('L', 3, 'index up + thumb out fallback');
       }
     }
 
@@ -415,10 +422,13 @@ const ASLClassifier = (() => {
       addScore('H', 5, 'index+middle sideways');
     }
 
-    // ===== I: Only pinky up =====
+    // ===== I: Only pinky up (thumb NOT out) =====
     if (s.pinkyUp && !s.indexUp && !s.middleUp && !s.ringUp) {
-      addScore('I', 7, 'only pinky up');
-      addScore('J', 4, 'pinky up (J base)');
+      if (!s.thumbOut) {
+        addScore('I', 8, 'only pinky up, thumb in');
+        addScore('J', 4, 'pinky up (J base)');
+      }
+      // If thumb IS out, that's Y — handled below
     }
 
     // ===== J: Same as I (motion letter) =====
@@ -436,10 +446,15 @@ const ASLClassifier = (() => {
       }
     }
 
-    // ===== L: Index up + thumb out at angle =====
+    // ===== L: Index up + thumb out at right angle =====
     if (s.indexUp && !s.middleUp && !s.ringUp && !s.pinkyUp && s.thumbOut) {
-      if (!s.handPointingSide) {
-        addScore('L', 6, 'index up + thumb out = L shape');
+      if (!s.handPointingSide && !s.handPointingDown) {
+        // L requires thumb clearly out to the side (not touching other fingers)
+        if (s.thumbToIndex > 0.5) {
+          addScore('L', 7, 'index up + thumb far out = L shape');
+        } else {
+          addScore('L', 4, 'index up + thumb out');
+        }
       }
     }
 
@@ -546,14 +561,15 @@ const ASLClassifier = (() => {
     };
   }
 
-  // Stability filter — require consistent detection
+  // Stability filter — require consistent detection but be fast
   let recentResults = [];
-  const STABILITY_FRAMES = 5;
+  const STABILITY_FRAMES = 3;
 
   function classifyStable(landmarks) {
     const result = classify(landmarks);
     if (!result) {
-      recentResults = [];
+      // Don't clear entirely on one miss — allow 1 dropped frame
+      if (recentResults.length > 0) recentResults.shift();
       return null;
     }
 
@@ -562,7 +578,7 @@ const ASLClassifier = (() => {
       recentResults.shift();
     }
 
-    if (recentResults.length < 3) return null;
+    if (recentResults.length < 2) return null;
 
     // Check if majority of recent frames agree
     const counts = {};
@@ -579,8 +595,8 @@ const ASLClassifier = (() => {
       }
     }
 
-    // Need at least 60% agreement
-    if (maxCount / recentResults.length >= 0.6) {
+    // Need at least 2 out of 3 agreeing (67%)
+    if (maxCount >= 2) {
       return { letter: stableLetter, confidence: result.confidence };
     }
 
