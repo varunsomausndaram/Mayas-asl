@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#667eea">
+  <title>Maya's ASL Adventure</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23667eea'/><text x='256' y='350' font-size='280' text-anchor='middle' fill='white'>🤟</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div id="splash-screen" class="screen active">
+    <div class="splash-content">
+      <div class="splash-icon">🤟</div>
+      <h1>Maya's ASL Adventure</h1>
+      <p class="splash-subtitle">Learn Sign Language with Your Camera!</p>
+      <div class="loading-bar">
+        <div class="loading-fill" id="loading-fill"></div>
+      </div>
+      <p class="loading-text" id="loading-text">Loading hand detection...</p>
+    </div>
+  </div>
+
+  <!-- ===== HOME SCREEN ===== -->
+  <div id="home-screen" class="screen">
+    <div class="home-header">
+      <div class="xp-bar-container">
+        <div class="xp-bar">
+          <div class="xp-fill" id="home-xp-fill"></div>
+        </div>
+        <span class="xp-text" id="home-xp-text">Level 1</span>
+      </div>
+      <div class="streak-badge" id="home-streak">
+        <span class="streak-fire">🔥</span>
+        <span class="streak-count" id="streak-count">0</span>
+      </div>
+    </div>
+
+    <div class="home-greeting">
+      <h1 id="greeting-text">Hey there! 👋</h1>
+      <p id="greeting-sub">Ready to learn ASL today?</p>
+    </div>
+
+    <div class="daily-challenge" id="daily-challenge">
+      <div class="challenge-icon">⭐</div>
+      <div class="challenge-info">
+        <h3>Daily Challenge</h3>
+        <p id="daily-challenge-text">Complete 5 letters to earn bonus XP!</p>
+      </div>
+      <div class="challenge-progress">
+        <span id="daily-progress">0/5</span>
+      </div>
+    </div>
+
+    <div class="menu-grid">
+      <button class="menu-card" onclick="app.showScreen('learn-screen')" style="--card-color: #FF6B6B">
+        <div class="card-icon">📚</div>
+        <div class="card-label">Learn</div>
+        <div class="card-desc">Study the alphabet</div>
+      </button>
+      <button class="menu-card" onclick="app.showScreen('practice-screen')" style="--card-color: #4ECDC4">
+        <div class="card-icon">📷</div>
+        <div class="card-label">Practice</div>
+        <div class="card-desc">Use your camera</div>
+      </button>
+      <button class="menu-card" onclick="app.showScreen('quiz-screen')" style="--card-color: #45B7D1">
+        <div class="card-icon">🎮</div>
+        <div class="card-label">Quiz</div>
+        <div class="card-desc">Test your skills</div>
+      </button>
+      <button class="menu-card" onclick="app.showScreen('spell-screen')" style="--card-color: #96CEB4">
+        <div class="card-icon">✍️</div>
+        <div class="card-label">Spell</div>
+        <div class="card-desc">Fingerspell words</div>
+      </button>
+      <button class="menu-card" onclick="app.showScreen('achievements-screen')" style="--card-color: #FFEAA7">
+        <div class="card-icon">🏆</div>
+        <div class="card-label">Badges</div>
+        <div class="card-desc">Your achievements</div>
+      </button>
+      <button class="menu-card" onclick="app.showScreen('funfacts-screen')" style="--card-color: #DDA0DD">
+        <div class="card-icon">💡</div>
+        <div class="card-label">Fun Facts</div>
+        <div class="card-desc">Cool ASL stuff</div>
+      </button>
+    </div>
+
+    <div class="progress-overview">
+      <h3>Your Progress</h3>
+      <div class="alphabet-progress" id="alphabet-progress"></div>
+    </div>
+  </div>
+
+  <!-- ===== LEARN SCREEN ===== -->
+  <div id="learn-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.showScreen('home-screen')">← Back</button>
+      <h2>Learn ASL Alphabet</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="learn-tabs">
+      <button class="tab-btn active" onclick="app.setLearnTab('all')">All</button>
+      <button class="tab-btn" onclick="app.setLearnTab('easy')">Easy</button>
+      <button class="tab-btn" onclick="app.setLearnTab('medium')">Medium</button>
+      <button class="tab-btn" onclick="app.setLearnTab('hard')">Hard</button>
+    </div>
+    <div class="letter-grid" id="letter-grid"></div>
+  </div>
+
+  <!-- ===== LETTER DETAIL SCREEN ===== -->
+  <div id="letter-detail-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.showScreen('learn-screen')">← Back</button>
+      <h2 id="letter-detail-title">Letter A</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="letter-detail-content">
+      <div class="letter-display" id="letter-hand-display">
+        <div class="big-letter" id="detail-big-letter">A</div>
+      </div>
+      <div class="letter-instructions" id="letter-instructions"></div>
+      <div class="hand-diagram" id="hand-diagram"></div>
+      <div class="finger-checklist" id="finger-checklist"></div>
+      <div class="letter-tip" id="letter-tip"></div>
+      <button class="practice-btn" onclick="app.practiceThisLetter()">
+        📷 Practice This Letter
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== PRACTICE SCREEN ===== -->
+  <div id="practice-screen" class="screen">
+    <div class="screen-header practice-header">
+      <button class="back-btn" onclick="app.stopPractice()">← Back</button>
+      <h2>Practice Mode</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="practice-container">
+      <div class="target-letter-bar">
+        <span class="target-label">Show me:</span>
+        <span class="target-letter" id="practice-target">A</span>
+        <button class="skip-btn" onclick="app.nextPracticeLetter()">Skip →</button>
+      </div>
+      <div class="camera-container">
+        <video id="camera-feed" autoplay playsinline muted></video>
+        <canvas id="hand-overlay" class="hand-overlay"></canvas>
+        <div class="detection-status" id="detection-status">
+          <span class="status-dot"></span>
+          <span class="status-text">Waiting for hand...</span>
+        </div>
+        <div class="detected-letter-display" id="detected-letter-display"></div>
+      </div>
+      <div class="practice-feedback" id="practice-feedback">
+        <div class="feedback-icon" id="feedback-icon"></div>
+        <div class="feedback-text" id="feedback-text">Position your hand in front of the camera</div>
+      </div>
+      <div class="practice-hint" id="practice-hint">
+        <button class="hint-btn" onclick="app.showPracticeHint()">💡 Show Hint</button>
+        <div class="hint-content" id="hint-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== QUIZ SCREEN ===== -->
+  <div id="quiz-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.stopQuiz()">← Back</button>
+      <h2>Quiz Mode</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="quiz-setup" id="quiz-setup">
+      <h3>Choose Your Challenge!</h3>
+      <div class="quiz-options">
+        <button class="quiz-option" onclick="app.startQuiz('easy')">
+          <div class="quiz-opt-icon">🌟</div>
+          <div class="quiz-opt-label">Easy</div>
+          <div class="quiz-opt-desc">5 letters, 15 sec each</div>
+        </button>
+        <button class="quiz-option" onclick="app.startQuiz('medium')">
+          <div class="quiz-opt-icon">⚡</div>
+          <div class="quiz-opt-label">Medium</div>
+          <div class="quiz-opt-desc">10 letters, 10 sec each</div>
+        </button>
+        <button class="quiz-option" onclick="app.startQuiz('hard')">
+          <div class="quiz-opt-icon">🔥</div>
+          <div class="quiz-opt-label">Hard</div>
+          <div class="quiz-opt-desc">15 letters, 7 sec each</div>
+        </button>
+        <button class="quiz-option" onclick="app.startQuiz('speed')">
+          <div class="quiz-opt-icon">💨</div>
+          <div class="quiz-opt-label">Speed Run</div>
+          <div class="quiz-opt-desc">All 26, go fast!</div>
+        </button>
+      </div>
+    </div>
+    <div class="quiz-game hidden" id="quiz-game">
+      <div class="quiz-hud">
+        <div class="quiz-score">Score: <span id="quiz-score">0</span></div>
+        <div class="quiz-timer" id="quiz-timer">
+          <div class="timer-ring">
+            <svg viewBox="0 0 36 36">
+              <path class="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <path class="timer-fill" id="timer-fill" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            </svg>
+            <span class="timer-text" id="timer-text">10</span>
+          </div>
+        </div>
+        <div class="quiz-progress">
+          <span id="quiz-current">1</span>/<span id="quiz-total">10</span>
+        </div>
+      </div>
+      <div class="quiz-prompt">
+        <p>Sign this letter:</p>
+        <div class="quiz-letter" id="quiz-letter">A</div>
+      </div>
+      <div class="camera-container quiz-camera">
+        <video id="quiz-camera-feed" autoplay playsinline muted></video>
+        <canvas id="quiz-hand-overlay" class="hand-overlay"></canvas>
+        <div class="quiz-result-overlay hidden" id="quiz-result-overlay">
+          <div class="result-emoji" id="quiz-result-emoji">✅</div>
+        </div>
+      </div>
+      <div class="quiz-streak-display">
+        <span>Streak: </span><span id="quiz-streak">0</span> 🔥
+      </div>
+    </div>
+    <div class="quiz-results hidden" id="quiz-results">
+      <div class="results-card">
+        <div class="results-emoji" id="results-emoji">🎉</div>
+        <h2 id="results-title">Great Job!</h2>
+        <div class="results-stats">
+          <div class="stat">
+            <div class="stat-value" id="result-score">0</div>
+            <div class="stat-label">Score</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="result-correct">0</div>
+            <div class="stat-label">Correct</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="result-streak">0</div>
+            <div class="stat-label">Best Streak</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="result-xp">+0 XP</div>
+            <div class="stat-label">Earned</div>
+          </div>
+        </div>
+        <div class="results-missed" id="results-missed"></div>
+        <div class="results-actions">
+          <button class="btn-primary" onclick="app.showScreen('quiz-screen'); document.getElementById('quiz-setup').classList.remove('hidden'); document.getElementById('quiz-results').classList.add('hidden');">Play Again</button>
+          <button class="btn-secondary" onclick="app.showScreen('home-screen')">Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SPELL SCREEN ===== -->
+  <div id="spell-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.stopSpell()">← Back</button>
+      <h2>Fingerspell</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="spell-setup" id="spell-setup">
+      <h3>Pick a Category!</h3>
+      <div class="spell-categories">
+        <button class="spell-cat" onclick="app.startSpell('animals')">🐾 Animals</button>
+        <button class="spell-cat" onclick="app.startSpell('colors')">🎨 Colors</button>
+        <button class="spell-cat" onclick="app.startSpell('food')">🍕 Food</button>
+        <button class="spell-cat" onclick="app.startSpell('family')">👨‍👩‍👧 Family</button>
+        <button class="spell-cat" onclick="app.startSpell('school')">🏫 School</button>
+        <button class="spell-cat" onclick="app.startSpell('names')">📛 Names</button>
+      </div>
+    </div>
+    <div class="spell-game hidden" id="spell-game">
+      <div class="spell-word-display">
+        <div class="spell-word" id="spell-word"></div>
+        <div class="spell-letters" id="spell-letters"></div>
+      </div>
+      <div class="camera-container spell-camera">
+        <video id="spell-camera-feed" autoplay playsinline muted></video>
+        <canvas id="spell-hand-overlay" class="hand-overlay"></canvas>
+      </div>
+      <div class="spell-feedback" id="spell-feedback">Spell it out letter by letter!</div>
+      <div class="spell-progress-bar">
+        <div class="spell-progress-fill" id="spell-progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ACHIEVEMENTS SCREEN ===== -->
+  <div id="achievements-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.showScreen('home-screen')">← Back</button>
+      <h2>Your Badges</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="achievements-stats">
+      <div class="stat-card">
+        <div class="stat-number" id="total-xp">0</div>
+        <div class="stat-name">Total XP</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="letters-learned">0</div>
+        <div class="stat-name">Letters Learned</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="best-streak-stat">0</div>
+        <div class="stat-name">Best Streak</div>
+      </div>
+    </div>
+    <div class="badges-grid" id="badges-grid"></div>
+  </div>
+
+  <!-- ===== FUN FACTS SCREEN ===== -->
+  <div id="funfacts-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.showScreen('home-screen')">← Back</button>
+      <h2>Fun Facts</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="funfacts-container" id="funfacts-container"></div>
+  </div>
+
+  <!-- ===== CELEBRATION OVERLAY ===== -->
+  <div class="celebration-overlay hidden" id="celebration">
+    <div class="confetti-container" id="confetti"></div>
+    <div class="celebration-content">
+      <div class="celebration-emoji" id="celebration-emoji">🎉</div>
+      <h2 id="celebration-title">Amazing!</h2>
+      <p id="celebration-text">You earned a badge!</p>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/asl-classifier.js"></script>
+  <script src="js/hand-detector.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
