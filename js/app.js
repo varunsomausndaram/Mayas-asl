@@ -211,6 +211,10 @@ const app = (() => {
       document.getElementById('spell-setup').classList.remove('hidden');
       document.getElementById('spell-game').classList.add('hidden');
     }
+    if (screenId === 'calibrate-screen') {
+      renderCalibrate();
+      startCalibrateCamera();
+    }
   }
 
   // ===== LEARN SCREEN =====
@@ -762,6 +766,118 @@ const app = (() => {
     }
   }
 
+  // ===== CALIBRATION MODE =====
+  let calLetter = 'A';
+  let calCameraActive = false;
+  let calCurrentLandmarks = null;
+  let calAutoInterval = null;
+
+  function renderCalibrate() {
+    // Letter grid
+    const grid = document.getElementById('cal-letter-grid');
+    grid.innerHTML = '';
+    for (let i = 0; i < 26; i++) {
+      const letter = String.fromCharCode(65 + i);
+      const btn = document.createElement('button');
+      btn.className = 'cal-letter-btn' + (letter === calLetter ? ' active' : '');
+      const count = ASLClassifier.getKNNSampleCount(letter);
+      if (count >= 3) btn.classList.add('trained');
+      btn.textContent = letter;
+      btn.onclick = () => { calLetter = letter; renderCalibrate(); };
+      grid.appendChild(btn);
+    }
+
+    document.getElementById('cal-target-letter').textContent = calLetter;
+    document.getElementById('cal-sample-count').textContent =
+      `${ASLClassifier.getKNNSampleCount(calLetter)} / 15 samples`;
+    document.getElementById('cal-total-samples').textContent =
+      `${ASLClassifier.getTotalKNNSamples()} samples`;
+    document.getElementById('cal-trained-letters').textContent =
+      `${ASLClassifier.getTrainedLetters().length} letters trained`;
+  }
+
+  async function startCalibrateCamera() {
+    const video = document.getElementById('cal-camera-feed');
+    const canvas = document.getElementById('cal-hand-overlay');
+
+    calCameraActive = true;
+    await HandDetector.startCamera(video);
+
+    HandDetector.startDetection(video, canvas, (landmarks, detected) => {
+      if (!calCameraActive) return;
+      const dot = document.getElementById('cal-status-dot');
+      const text = document.getElementById('cal-status-text');
+      if (detected) {
+        dot.classList.add('active');
+        text.textContent = 'Hand detected!';
+        calCurrentLandmarks = landmarks;
+      } else {
+        dot.classList.remove('active');
+        text.textContent = 'Show your hand...';
+        calCurrentLandmarks = null;
+      }
+    });
+  }
+
+  function recordCalibrationSample() {
+    if (!calCurrentLandmarks) {
+      document.getElementById('cal-feedback').textContent = 'No hand detected! Show your hand first.';
+      return;
+    }
+
+    ASLClassifier.addKNNSample(calLetter, calCurrentLandmarks);
+    const count = ASLClassifier.getKNNSampleCount(calLetter);
+    document.getElementById('cal-feedback').textContent =
+      `Recorded sample ${count} for "${calLetter}"!`;
+    document.getElementById('cal-feedback').style.color = '#2ecc71';
+
+    renderCalibrate();
+
+    // Quick flash on the record button
+    const btn = document.getElementById('cal-record-btn');
+    btn.style.background = '#2ecc71';
+    setTimeout(() => { btn.style.background = ''; }, 300);
+  }
+
+  function toggleAutoRecord() {
+    if (calAutoInterval) {
+      clearInterval(calAutoInterval);
+      calAutoInterval = null;
+      document.getElementById('cal-auto-btn').textContent = 'Auto-Record (3s)';
+      document.getElementById('cal-feedback').textContent = 'Auto-record stopped.';
+      return;
+    }
+
+    document.getElementById('cal-auto-btn').textContent = 'Stop Auto-Record';
+    document.getElementById('cal-feedback').textContent = 'Auto-recording every 3 seconds...';
+
+    calAutoInterval = setInterval(() => {
+      if (calCurrentLandmarks) {
+        recordCalibrationSample();
+      }
+    }, 3000);
+  }
+
+  function resetCalibration() {
+    if (confirm('Delete all calibration data? You will need to re-train.')) {
+      ASLClassifier.clearKNN();
+      renderCalibrate();
+      document.getElementById('cal-feedback').textContent = 'All calibration data cleared.';
+      document.getElementById('cal-feedback').style.color = '#e74c3c';
+    }
+  }
+
+  function stopCalibrate() {
+    calCameraActive = false;
+    if (calAutoInterval) {
+      clearInterval(calAutoInterval);
+      calAutoInterval = null;
+    }
+    HandDetector.stopDetection();
+    HandDetector.stopCamera(document.getElementById('cal-camera-feed'));
+    showScreen('home-screen');
+  }
+
   // Start the app
   init();
 
@@ -778,6 +894,11 @@ const app = (() => {
     stopQuiz,
     startSpell,
     stopSpell,
+    stopCalibrate,
+    renderCalibrate,
+    recordCalibrationSample,
+    toggleAutoRecord,
+    resetCalibration,
     state
   };
 })();

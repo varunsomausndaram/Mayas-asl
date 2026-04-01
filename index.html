@@ -82,10 +82,15 @@
         <div class="card-label">Badges</div>
         <div class="card-desc">Your achievements</div>
       </button>
+      <button class="menu-card" onclick="app.showScreen('calibrate-screen')" style="--card-color: #a29bfe">
+        <div class="card-icon">🎯</div>
+        <div class="card-label">Calibrate</div>
+        <div class="card-desc">Teach it YOUR hands</div>
+      </button>
       <button class="menu-card" onclick="app.showScreen('funfacts-screen')" style="--card-color: #DDA0DD">
         <div class="card-icon">💡</div>
         <div class="card-label">Fun Facts</div>
-        <div class="card-desc">Cool ASL stuff</div>
+        <div class="card-desc">Cool ASL info</div>
       </button>
     </div>
 
@@ -325,6 +330,50 @@
       <div class="header-spacer"></div>
     </div>
     <div class="funfacts-container" id="funfacts-container"></div>
+  </div>
+
+  <!-- ===== CALIBRATE SCREEN ===== -->
+  <div id="calibrate-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="app.stopCalibrate()">← Back</button>
+      <h2>Calibrate</h2>
+      <div class="header-spacer"></div>
+    </div>
+    <div class="calibrate-content">
+      <div class="calibrate-info">
+        <p>Teach the app YOUR hands! Hold each sign and tap <strong>Record</strong> to save samples. More samples = better accuracy.</p>
+        <div class="calibrate-stats">
+          <span id="cal-total-samples">0 samples</span>
+          <span id="cal-trained-letters">0 letters trained</span>
+          <button class="cal-reset-btn" onclick="app.resetCalibration()">Reset All</button>
+        </div>
+      </div>
+      <div class="calibrate-letter-select">
+        <label>Letter to train:</label>
+        <div class="cal-letter-grid" id="cal-letter-grid"></div>
+      </div>
+      <div class="cal-current">
+        <div class="cal-target-letter" id="cal-target-letter">A</div>
+        <div class="cal-sample-count" id="cal-sample-count">0 / 15 samples</div>
+      </div>
+      <div class="camera-container cal-camera">
+        <video id="cal-camera-feed" autoplay playsinline muted></video>
+        <canvas id="cal-hand-overlay" class="hand-overlay"></canvas>
+        <div class="detection-status" id="cal-detection-status">
+          <span class="status-dot" id="cal-status-dot"></span>
+          <span class="status-text" id="cal-status-text">Start camera</span>
+        </div>
+      </div>
+      <div class="cal-actions">
+        <button class="cal-record-btn" id="cal-record-btn" onclick="app.recordCalibrationSample()">
+          Hold sign & tap to Record
+        </button>
+        <button class="cal-auto-btn" id="cal-auto-btn" onclick="app.toggleAutoRecord()">
+          Auto-Record (3s)
+        </button>
+      </div>
+      <div class="cal-feedback" id="cal-feedback"></div>
+    </div>
   </div>
 
   <!-- ===== CELEBRATION OVERLAY ===== -->
