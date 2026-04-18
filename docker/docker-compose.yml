@@ -1,0 +1,41 @@
+services:
+  jarvis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: jarvis:latest
+    container_name: jarvis
+    restart: unless-stopped
+    ports:
+      - "${JARVIS_PORT:-8765}:8765"
+    environment:
+      JARVIS_API_KEY: ${JARVIS_API_KEY}
+      JARVIS_LLM_PROVIDER: ${JARVIS_LLM_PROVIDER:-ollama}
+      JARVIS_LLM_FALLBACK: ${JARVIS_LLM_FALLBACK:-anthropic}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      JARVIS_VOICE_ENABLED: "false"
+      JARVIS_CORS_ORIGINS: "${JARVIS_CORS_ORIGINS:-*}"
+    volumes:
+      - jarvis_data:/app/var
+      - ${HOME}/.claude:/home/jarvis/.claude:rw
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: jarvis-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  jarvis_data:
+  ollama_data:

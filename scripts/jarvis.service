@@ -1,0 +1,21 @@
+[Unit]
+Description=Jarvis personal AI assistant
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=%h/jarvis
+EnvironmentFile=%h/jarvis/.env
+ExecStart=%h/jarvis/.venv/bin/jarvisd
+Restart=on-failure
+RestartSec=5
+# Sandboxing
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/jarvis/var %h/.claude
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0f1a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="description" content="Jarvis — your personal AI assistant." />
+<title>Jarvis</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/static/icons/icon-192.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/static/icons/icon-192.svg" />
+<link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="24" fill="none" stroke="currentColor" stroke-width="2.5"/>
+      <circle cx="32" cy="32" r="8" fill="currentColor"/>
+    </svg>
+    <span>Jarvis</span>
+  </div>
+  <div class="status">
+    <span id="connection-dot" class="dot" aria-hidden="true"></span>
+    <span id="connection-text">connecting…</span>
+  </div>
+  <button id="settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
+</header>
+
+<main id="chat" class="chat" role="log" aria-live="polite" aria-label="Conversation"></main>
+
+<section id="approval-banner" class="approval hidden" aria-live="assertive"></section>
+
+<footer class="composer">
+  <button id="mic-btn" class="mic" aria-label="Start voice input" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z"/>
+    </svg>
+  </button>
+  <textarea id="composer-input" rows="1" placeholder="Ask Jarvis anything…" autocomplete="off" spellcheck="true"></textarea>
+  <button id="send-btn" class="send" aria-label="Send">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+  </button>
+  <button id="interrupt-btn" class="interrupt hidden" aria-label="Interrupt">■</button>
+</footer>
+
+<div id="settings-panel" class="panel hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <header><h2 id="settings-title">Settings</h2><button id="settings-close" class="icon-btn" aria-label="Close">×</button></header>
+  <div class="panel-body">
+    <label>
+      Server URL
+      <input id="cfg-url" type="url" autocomplete="url" spellcheck="false" />
+    </label>
+    <label>
+      API key
+      <input id="cfg-key" type="password" autocomplete="off" spellcheck="false" />
+    </label>
+    <label>
+      Preferred name
+      <input id="cfg-name" type="text" spellcheck="false" />
+    </label>
+    <label>
+      Address (what Jarvis calls you)
+      <input id="cfg-address" type="text" spellcheck="false" />
+    </label>
+    <label>
+      Humor level
+      <input id="cfg-humor" type="range" min="0" max="3" />
+      <span id="cfg-humor-val"></span>
+    </label>
+    <label>
+      Verbosity
+      <select id="cfg-verbosity">
+        <option value="concise">concise</option>
+        <option value="balanced">balanced</option>
+        <option value="verbose">verbose</option>
+      </select>
+    </label>
+    <label>
+      Speech rate
+      <input id="cfg-rate" type="range" min="80" max="400" />
+      <span id="cfg-rate-val"></span>
+    </label>
+    <label>
+      Voice output
+      <select id="cfg-voice">
+        <option value="auto">auto</option>
+      </select>
+    </label>
+    <label>
+      <input id="cfg-speak" type="checkbox" /> Speak responses aloud
+    </label>
+    <label>
+      <input id="cfg-wake" type="checkbox" /> Wake word "Jarvis" (experimental)
+    </label>
+    <div class="panel-actions">
+      <button id="settings-save" class="primary">Save</button>
+      <button id="settings-test" class="ghost">Test connection</button>
+    </div>
+    <p id="settings-status" class="muted"></p>
+    <hr/>
+    <h3>Scheduled jobs</h3>
+    <div id="jobs-list" class="jobs"></div>
+    <hr/>
+    <h3>Install Jarvis on this device</h3>
+    <p class="muted">
+      Open in Safari / Chrome → share → <em>Add to Home Screen</em> to run Jarvis like a native app.
+      Tap the mic to talk. Grant mic &amp; notification permissions when asked.
+    </p>
+  </div>
+</div>
+
+<template id="message-template">
+  <article class="msg">
+    <header class="msg-head"><span class="role"></span><time></time></header>
+    <div class="msg-body"></div>
+  </article>
+</template>
+
+<template id="approval-template">
+  <div class="approval-card">
+    <header>
+      <strong>Approval requested</strong>
+      <span class="risk"></span>
+    </header>
+    <p class="tool"></p>
+    <pre class="args"></pre>
+    <p class="rationale muted"></p>
+    <div class="buttons">
+      <button class="approve">Approve once</button>
+      <button class="approve-session">Approve this session</button>
+      <button class="approve-always">Always allow</button>
+      <button class="deny danger">Deny</button>
+    </div>
+  </div>
+</template>
+
+<script src="/static/js/storage.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/voice.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
