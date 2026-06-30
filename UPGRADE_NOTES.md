@@ -29,7 +29,21 @@ The following Postiz behaviors are overridden **entirely via environment variabl
 
 ## Phase 1 — LLM Gateway
 
-> (To be filled in when Phase 1 core edits, if any, are made.)
+No Postiz core files were modified in Phase 1.
+
+Postiz's built-in AI is redirected to the gateway via environment variables:
+
+| Env var            | Value                          | Effect                                           |
+|--------------------|--------------------------------|--------------------------------------------------|
+| `OPENAI_BASE_URL`  | `http://llm-gateway:3001/v1`   | All Postiz AI calls go to the gateway            |
+| `OPENAI_API_KEY`   | `${LLM_API_KEY}`               | Passed through; gateway uses its own key config  |
+
+The gateway itself lives in `propmarket/modules/gateway/` — a standalone Express service
+that the whole system (Postiz + n8n) calls on the Docker internal network.
+
+**Reconcile on next Postiz upgrade:** confirm `OPENAI_BASE_URL` is still a respected env var
+in the new Postiz version. If Postiz adds a native gateway/provider abstraction, evaluate
+whether to retire our gateway or keep it as the single-provider interface.
 
 ## Phase 2 — Real-estate core
 

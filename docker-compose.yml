@@ -31,6 +31,36 @@ volumes:
 ########################################################################################
 services:
 
+  # ── LLM Gateway (Phase 1 — the single AI client for the entire hub) ────────────────
+  llm-gateway:
+    build:
+      context: ./propmarket/modules/gateway
+      dockerfile: Dockerfile
+    image: mani-llm-gateway:latest
+    container_name: mani-llm-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-3001}:3001"
+    environment:
+      GATEWAY_PORT:    "3001"
+      LLM_PROVIDER:    "${LLM_PROVIDER:-openai_compatible}"
+      LLM_BASE_URL:    "${LLM_BASE_URL:-https://api.openai.com/v1}"
+      LLM_API_KEY:     "${LLM_API_KEY:-}"
+      LLM_MODEL:       "${LLM_MODEL:-gpt-4o}"
+      EMBED_BASE_URL:  "${EMBED_BASE_URL:-}"
+      EMBED_MODEL:     "${EMBED_MODEL:-text-embedding-3-small}"
+      LLM_FALLBACK_BASE_URL: "${LLM_FALLBACK_BASE_URL:-}"
+      LLM_FALLBACK_API_KEY:  "${LLM_FALLBACK_API_KEY:-}"
+      LLM_FALLBACK_MODEL:    "${LLM_FALLBACK_MODEL:-}"
+      GATEWAY_TIMEOUT_MS:    "120000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - hub
+
   # ── Postiz (social scheduling core) ────────────────────────────────────────────────
   postiz:
     image: ghcr.io/gitroomhq/postiz-app:latest
@@ -43,6 +73,8 @@ services:
         condition: service_healthy
       temporal:
         condition: service_started
+      llm-gateway:
+        condition: service_healthy
     ports:
       - "${POSTIZ_PORT:-4200}:5000"
     environment:
@@ -97,9 +129,11 @@ services:
       # ── Misc ───────────────────────────────────────────────────────────────────────
       IS_GENERAL:          "true"
       NX_ADD_PLUGINS:      "false"
-      # Phase 1: LLM Gateway base URL (n8n workflows and future postiz AI use this)
-      OPENAI_API_KEY:      "${LLM_API_KEY:-}"  # Postiz uses OPENAI_API_KEY for its built-in AI
-      OPENAI_BASE_URL:     "${LLM_BASE_URL:-}"  # Override to point at our gateway
+      # ── LLM Gateway — ALL Postiz AI calls route through the gateway ──────────────────
+      # Postiz reads OPENAI_API_KEY + OPENAI_BASE_URL for its built-in AI features.
+      # We point both at our gateway so every AI call is provider-agnostic.
+      OPENAI_API_KEY:  "${LLM_API_KEY:-sk-placeholder}"
+      OPENAI_BASE_URL: "http://llm-gateway:3001/v1"
     volumes:
       - postiz-uploads:/uploads
     networks:
