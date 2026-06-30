@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Provider — Mani Marketing</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2d3142;
+    --accent: #6366f1; --accent-hover: #4f52d9;
+    --text: #e2e8f0; --muted: #94a3b8; --danger: #f87171; --success: #4ade80;
+    --radius: 10px; --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; padding: 1rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); font-weight: 500; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  input, select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.75rem; color: var(--text); font-size: 0.95rem; outline: none; transition: border-color 0.15s; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+  .field { margin-bottom: 1rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  @media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+  .sep { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+  .section-title { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 1rem; }
+  .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+  button { padding: 0.6rem 1.25rem; border-radius: 6px; border: none; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { opacity: 0.8; }
+  .btn-test { background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb; }
+  .btn-test:hover { background: #1e4080; }
+  #test-result { margin-top: 0.75rem; padding: 0.6rem 0.85rem; border-radius: 6px; font-size: 0.875rem; display: none; }
+  .ok    { background: #14532d33; border: 1px solid #166534; color: var(--success); }
+  .fail  { background: #450a0a33; border: 1px solid #7f1d1d; color: var(--danger); }
+  #model-list { margin-top: 0.4rem; font-size: 0.8rem; color: var(--muted); }
+  .model-option { display: inline-block; margin: 0.2rem; padding: 0.2rem 0.5rem; background: var(--border); border-radius: 4px; cursor: pointer; }
+  .model-option:hover { background: var(--accent); color: #fff; }
+  .preset-btns { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .preset { background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+  .preset:hover { border-color: var(--accent); color: var(--text); }
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1e293b; border: 1px solid var(--border); padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.875rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⚡ AI Provider</h1>
+  <p class="subtitle">Mani Marketing · LLM Gateway settings — switch providers with zero code changes</p>
+
+  <div class="section-title">Quick presets</div>
+  <div class="preset-btns">
+    <button class="preset" onclick="applyPreset('openai')">OpenAI (GPT-4o)</button>
+    <button class="preset" onclick="applyPreset('anthropic')">Anthropic via LiteLLM</button>
+    <button class="preset" onclick="applyPreset('ollama')">Local Ollama</button>
+    <button class="preset" onclick="applyPreset('lmstudio')">LM Studio</button>
+  </div>
+
+  <hr class="sep">
+  <div class="section-title">Primary provider</div>
+
+  <div class="field">
+    <label>Provider</label>
+    <select id="provider">
+      <option value="openai_compatible">OpenAI / OpenAI-compatible</option>
+      <option value="anthropic">Anthropic (via LiteLLM sidecar)</option>
+      <option value="ollama">Ollama (local)</option>
+      <option value="lmstudio">LM Studio (local)</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Base URL</label>
+    <input id="baseUrl" type="url" placeholder="https://api.openai.com/v1">
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>API Key</label>
+      <input id="apiKey" type="password" placeholder="sk-... (leave blank to keep current)">
+    </div>
+    <div class="field">
+      <label>Model</label>
+      <input id="model" type="text" placeholder="gpt-4o">
+    </div>
+  </div>
+
+  <div class="field">
+    <button class="btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.8rem" onclick="loadModels()">↻ Fetch models from provider</button>
+    <div id="model-list"></div>
+  </div>
+
+  <hr class="sep">
+  <div class="section-title">Embeddings (optional — defaults to primary)</div>
+  <div class="row">
+    <div class="field">
+      <label>Embed Base URL</label>
+      <input id="embedBaseUrl" type="url" placeholder="same as primary">
+    </div>
+    <div class="field">
+      <label>Embed Model</label>
+      <input id="embedModel" type="text" placeholder="text-embedding-3-small">
+    </div>
+  </div>
+
+  <hr class="sep">
+  <div class="section-title">Fallback provider (optional)</div>
+  <div class="field">
+    <label>Fallback Base URL</label>
+    <input id="fallbackBaseUrl" type="url" placeholder="http://ollama:11434/v1">
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>Fallback API Key</label>
+      <input id="fallbackApiKey" type="password" placeholder="ollama">
+    </div>
+    <div class="field">
+      <label>Fallback Model</label>
+      <input id="fallbackModel" type="text" placeholder="llama3.1:8b">
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-primary" onclick="saveSettings()">Save</button>
+    <button class="btn-test" onclick="testConnection()">Test connection</button>
+    <button class="btn-secondary" onclick="loadSettings()">Reset</button>
+  </div>
+
+  <div id="test-result"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PRESETS = {
+  openai:    { provider:'openai_compatible', baseUrl:'https://api.openai.com/v1', model:'gpt-4o' },
+  anthropic: { provider:'anthropic', baseUrl:'http://litellm:4000/v1', model:'claude-sonnet-4-6' },
+  ollama:    { provider:'ollama', baseUrl:'http://ollama:11434/v1', model:'llama3.1', apiKey:'ollama' },
+  lmstudio:  { provider:'lmstudio', baseUrl:'http://host.docker.internal:1234/v1', model:'local-model', apiKey:'lm-studio' },
+};
+
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  if (p.provider) setVal('provider', p.provider);
+  if (p.baseUrl)  setVal('baseUrl', p.baseUrl);
+  if (p.model)    setVal('model', p.model);
+  if (p.apiKey)   setVal('apiKey', p.apiKey);
+  showToast(`Preset applied: ${key}`);
+}
+
+function setVal(id, val) { document.getElementById(id).value = val; }
+function getVal(id)      { return document.getElementById(id).value.trim(); }
+
+async function loadSettings() {
+  const r = await fetch('/api/settings');
+  const d = await r.json();
+  setVal('provider',     d.provider || '');
+  setVal('baseUrl',      d.baseUrl || '');
+  setVal('model',        d.model || '');
+  setVal('embedBaseUrl', d.embedBaseUrl || '');
+  setVal('embedModel',   d.embedModel || '');
+  setVal('fallbackBaseUrl', d.fallbackBaseUrl || '');
+  setVal('fallbackModel',   d.fallbackModel || '');
+  // Never pre-fill key fields
+}
+
+async function saveSettings() {
+  const body = {
+    provider:     getVal('provider'),
+    baseUrl:      getVal('baseUrl'),
+    model:        getVal('model'),
+    embedBaseUrl: getVal('embedBaseUrl'),
+    embedModel:   getVal('embedModel'),
+    fallbackBaseUrl: getVal('fallbackBaseUrl'),
+    fallbackModel:   getVal('fallbackModel'),
+  };
+  const apiKey = getVal('apiKey');
+  if (apiKey) body.apiKey = apiKey;
+  const fallbackApiKey = getVal('fallbackApiKey');
+  if (fallbackApiKey) body.fallbackApiKey = fallbackApiKey;
+
+  const r = await fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (r.ok) {
+    showToast('Settings saved ✓');
+    setVal('apiKey', '');
+    setVal('fallbackApiKey', '');
+  } else {
+    showToast('Save failed', true);
+  }
+}
+
+async function testConnection() {
+  const el = document.getElementById('test-result');
+  el.style.display = 'block';
+  el.className = '';
+  el.textContent = 'Testing…';
+
+  // Save first so the gateway uses current form values
+  await saveSettings();
+
+  const r = await fetch('/api/settings/test', { method: 'POST' });
+  const d = await r.json();
+  if (d.ok) {
+    el.className = 'ok';
+    el.textContent = `✓ Connected — model: ${d.model}  latency: ${d.latencyMs}ms`;
+  } else {
+    el.className = 'fail';
+    el.textContent = `✗ Failed — ${d.error || 'unknown error'}`;
+  }
+}
+
+async function loadModels() {
+  const el = document.getElementById('model-list');
+  el.textContent = 'Loading…';
+  const r = await fetch('/api/settings/models');
+  const d = await r.json();
+  if (!d.models || d.models.length === 0) {
+    el.textContent = 'No models returned (provider may not support /models)';
+    return;
+  }
+  el.innerHTML = d.models.slice(0, 30).map(m =>
+    `<span class="model-option" onclick="setVal('model','${m.id}')">${m.id}</span>`
+  ).join('');
+}
+
+function showToast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = err ? 'var(--danger)' : 'var(--border)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+loadSettings();
+</script>
+</body>
+</html>

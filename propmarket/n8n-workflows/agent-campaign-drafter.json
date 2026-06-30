@@ -1,0 +1,61 @@
+{
+  "name": "Mani: Campaign Step Drafter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "minutesInterval": 24 }] }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://propmarket-api:3002/api/campaign-runs?status=active",
+        "options": {}
+      },
+      "name": "Get Active Campaign Runs",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// For each active campaign run, check if any steps are due today.\n// A step is due if: start_date + week_offset * 7 days <= today\nconst runs = $input.all()[0].json;\nconst today = new Date();\nconst dueSteps = [];\n\nfor (const run of (Array.isArray(runs) ? runs : [])) {\n  const startDate = new Date(run.start_date);\n  for (const step of (run.steps || [])) {\n    const dueDate = new Date(startDate);\n    dueDate.setDate(dueDate.getDate() + (step.week_offset || 0) * 7);\n    // Due if within the next 24 hours\n    if (dueDate >= today && dueDate < new Date(today.getTime() + 86400000)) {\n      dueSteps.push({ ...step, run_id: run.id, property_id: run.property_id,\n        campaign_run_id: run.id, preset_name: run.preset_name });\n    }\n  }\n}\n\nreturn dueSteps.map(s => ({ json: s }));"
+      },
+      "name": "Find Due Steps",
+      "type": "n8n-nodes-base.code",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://propmarket-api:3002/api/templates/{{ $json.template_slug }}/generate",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ property_id: $json.property_id }) }}"
+      },
+      "name": "Generate Post Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://propmarket-api:3002/api/queue",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ action_type: 'campaign_step', property_id: $('Find Due Steps').item.json.property_id, campaign_run_id: $('Find Due Steps').item.json.campaign_run_id, draft_content: $json.generated, agent_reasoning: 'Auto-generated from campaign preset: ' + $('Find Due Steps').item.json.label, channel: 'social' }) }}"
+      },
+      "name": "Enqueue to Approval Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger":       { "main": [[{ "node": "Get Active Campaign Runs", "type": "main", "index": 0 }]] },
+    "Get Active Campaign Runs": { "main": [[{ "node": "Find Due Steps",          "type": "main", "index": 0 }]] },
+    "Find Due Steps":         { "main": [[{ "node": "Generate Post Draft",       "type": "main", "index": 0 }]] },
+    "Generate Post Draft":    { "main": [[{ "node": "Enqueue to Approval Queue", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

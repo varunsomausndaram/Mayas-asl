@@ -1,0 +1,51 @@
+{
+  "name": "Mani: Record Analytics Event",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mani-analytics",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate inbound analytics payload\nconst body = $input.first().json.body || {};\nconst required = ['property_id','event_type','period_start','period_end'];\nfor (const key of required) {\n  if (!body[key]) throw new Error(`Missing required field: ${key}`);\n}\nreturn [{ json: body }];"
+      },
+      "name": "Validate",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://propmarket-api:3002/api/analytics/events",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "name": "Record Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $json.id }) }}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook":      { "main": [[{ "node": "Validate",     "type": "main", "index": 0 }]] },
+    "Validate":     { "main": [[{ "node": "Record Event", "type": "main", "index": 0 }]] },
+    "Record Event": { "main": [[{ "node": "Respond",      "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

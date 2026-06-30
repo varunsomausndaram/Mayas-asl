@@ -1,0 +1,309 @@
+# Mani Marketing — docker-compose.yml
+# One command to start the entire hub: docker compose up -d
+#
+# Required: copy .env.example → .env and fill in secrets before first run.
+# Optional services (LiteLLM, Ollama) are in docker-compose.llm.yml —
+#   start them with: docker compose -f docker-compose.yml -f docker-compose.llm.yml up -d
+
+version: "3.9"
+
+########################################################################################
+# NETWORKS
+########################################################################################
+networks:
+  hub:
+    driver: bridge
+  temporal-net:
+    driver: bridge
+
+########################################################################################
+# VOLUMES
+########################################################################################
+volumes:
+  postgres-data:
+  redis-data:
+  n8n-data:
+  postiz-uploads:
+  temporal-postgres-data:
+
+########################################################################################
+# SERVICES
+########################################################################################
+services:
+
+  # ── LLM Gateway (Phase 1 — the single AI client for the entire hub) ────────────────
+  llm-gateway:
+    build:
+      context: ./propmarket/modules/gateway
+      dockerfile: Dockerfile
+    image: mani-llm-gateway:latest
+    container_name: mani-llm-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-3001}:3001"
+    environment:
+      GATEWAY_PORT:    "3001"
+      LLM_PROVIDER:    "${LLM_PROVIDER:-openai_compatible}"
+      LLM_BASE_URL:    "${LLM_BASE_URL:-https://api.openai.com/v1}"
+      LLM_API_KEY:     "${LLM_API_KEY:-}"
+      LLM_MODEL:       "${LLM_MODEL:-gpt-4o}"
+      EMBED_BASE_URL:  "${EMBED_BASE_URL:-}"
+      EMBED_MODEL:     "${EMBED_MODEL:-text-embedding-3-small}"
+      LLM_FALLBACK_BASE_URL: "${LLM_FALLBACK_BASE_URL:-}"
+      LLM_FALLBACK_API_KEY:  "${LLM_FALLBACK_API_KEY:-}"
+      LLM_FALLBACK_MODEL:    "${LLM_FALLBACK_MODEL:-}"
+      GATEWAY_TIMEOUT_MS:    "120000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - hub
+
+  # ── Postiz (social scheduling core) ────────────────────────────────────────────────
+  postiz:
+    image: ghcr.io/gitroomhq/postiz-app:latest
+    container_name: mani-postiz
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+      llm-gateway:
+        condition: service_healthy
+    ports:
+      - "${POSTIZ_PORT:-4200}:5000"
+    environment:
+      # ── Core URLs ──────────────────────────────────────────────────────────────────
+      MAIN_URL:            "${FRONTEND_URL:-http://localhost:4200}"
+      FRONTEND_URL:        "${FRONTEND_URL:-http://localhost:4200}"
+      NEXT_PUBLIC_BACKEND_URL:  "${NEXT_PUBLIC_BACKEND_URL:-http://localhost:4200}"
+      BACKEND_INTERNAL_URL:     "${BACKEND_INTERNAL_URL:-http://postiz:5000}"
+      # ── Auth ───────────────────────────────────────────────────────────────────────
+      JWT_SECRET:          "${JWT_SECRET}"
+      # ── CRITICAL: disable public registration (private tool) ──────────────────────
+      DISABLE_REGISTRATION: "true"
+      # ── Database ───────────────────────────────────────────────────────────────────
+      DATABASE_URL:        "postgresql://${POSTGRES_USER:-mani}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-manidb}"
+      REDIS_URL:           "redis://redis:6379"
+      # ── Storage ────────────────────────────────────────────────────────────────────
+      STORAGE_PROVIDER:    "${STORAGE_PROVIDER:-local}"
+      UPLOAD_DIRECTORY:    "/uploads"
+      NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY: "/uploads"
+      # ── Temporal ───────────────────────────────────────────────────────────────────
+      TEMPORAL_INTERNAL_URL: "temporal:7233"
+      TEMPORAL_NAMESPACE:   "default"
+      # ── Social API keys (fill in .env) ─────────────────────────────────────────────
+      X_URL:               "${X_URL:-}"
+      X_API_KEY:           "${X_API_KEY:-}"
+      X_API_SECRET:        "${X_API_SECRET:-}"
+      LINKEDIN_CLIENT_ID:  "${LINKEDIN_CLIENT_ID:-}"
+      LINKEDIN_CLIENT_SECRET: "${LINKEDIN_CLIENT_SECRET:-}"
+      REDDIT_CLIENT_ID:    "${REDDIT_CLIENT_ID:-}"
+      REDDIT_CLIENT_SECRET: "${REDDIT_CLIENT_SECRET:-}"
+      FACEBOOK_APP_ID:     "${FACEBOOK_APP_ID:-}"
+      FACEBOOK_APP_SECRET: "${FACEBOOK_APP_SECRET:-}"
+      INSTAGRAM_APP_ID:    "${INSTAGRAM_APP_ID:-}"
+      INSTAGRAM_APP_SECRET: "${INSTAGRAM_APP_SECRET:-}"
+      THREADS_APP_ID:      "${THREADS_APP_ID:-}"
+      THREADS_APP_SECRET:  "${THREADS_APP_SECRET:-}"
+      YOUTUBE_CLIENT_ID:   "${YOUTUBE_CLIENT_ID:-}"
+      YOUTUBE_CLIENT_SECRET: "${YOUTUBE_CLIENT_SECRET:-}"
+      TIKTOK_CLIENT_ID:    "${TIKTOK_CLIENT_ID:-}"
+      TIKTOK_CLIENT_SECRET: "${TIKTOK_CLIENT_SECRET:-}"
+      PINTEREST_CLIENT_ID: "${PINTEREST_CLIENT_ID:-}"
+      PINTEREST_CLIENT_SECRET: "${PINTEREST_CLIENT_SECRET:-}"
+      DISCORD_CLIENT_ID:   "${DISCORD_CLIENT_ID:-}"
+      DISCORD_CLIENT_SECRET: "${DISCORD_CLIENT_SECRET:-}"
+      SLACK_ID:            "${SLACK_ID:-}"
+      SLACK_SECRET:        "${SLACK_SECRET:-}"
+      SLACK_SIGNING_SECRET: "${SLACK_SIGNING_SECRET:-}"
+      # ── Email (optional — for approval-queue notifications) ─────────────────────────
+      RESEND_API_KEY:      "${RESEND_API_KEY:-}"
+      EMAIL_FROM_ADDRESS:  "${EMAIL_FROM_ADDRESS:-}"
+      EMAIL_FROM_NAME:     "${EMAIL_FROM_NAME:-Mani Marketing}"
+      # ── Misc ───────────────────────────────────────────────────────────────────────
+      IS_GENERAL:          "true"
+      NX_ADD_PLUGINS:      "false"
+      # ── LLM Gateway — ALL Postiz AI calls route through the gateway ──────────────────
+      # Postiz reads OPENAI_API_KEY + OPENAI_BASE_URL for its built-in AI features.
+      # We point both at our gateway so every AI call is provider-agnostic.
+      OPENAI_API_KEY:  "${LLM_API_KEY:-sk-placeholder}"
+      OPENAI_BASE_URL: "http://llm-gateway:3001/v1"
+    volumes:
+      - postiz-uploads:/uploads
+    networks:
+      - hub
+
+  # ── PostgreSQL (main app DB) ────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: mani-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     "${POSTGRES_USER:-mani}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB:       "${POSTGRES_DB:-manidb}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mani} -d ${POSTGRES_DB:-manidb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hub
+
+  # ── PropMarket API (Phase 2 — properties, templates, campaigns) ─────────────────────
+  propmarket-api:
+    build:
+      context: ./propmarket/api
+      dockerfile: Dockerfile
+    image: mani-propmarket-api:latest
+    container_name: mani-propmarket-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      llm-gateway:
+        condition: service_healthy
+    ports:
+      - "${PROPMARKET_API_PORT:-3002}:3002"
+    environment:
+      DATABASE_URL:        "postgresql://${POSTGRES_USER:-mani}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-manidb}"
+      PROPMARKET_API_PORT: "3002"
+      LLM_GATEWAY_URL:     "http://llm-gateway:3001"
+      MIGRATIONS_DIR:      "/migrations"
+      # Postiz API (for approval queue → post execution)
+      POSTIZ_INTERNAL_URL: "http://postiz:5000"
+      POSTIZ_API_KEY:      "${POSTIZ_API_KEY:-}"
+      # n8n email/SMS webhooks (for approval queue execution)
+      N8N_EMAIL_WEBHOOK_URL: "${N8N_EMAIL_WEBHOOK_URL:-}"
+      N8N_SMS_WEBHOOK_URL:   "${N8N_SMS_WEBHOOK_URL:-}"
+    volumes:
+      - ./propmarket/migrations:/migrations:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - hub
+
+  # ── Redis ──────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: mani-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hub
+
+  # ── Temporal PostgreSQL (separate DB for Temporal) ──────────────────────────────────
+  temporal-postgres:
+    image: postgres:16-alpine
+    container_name: mani-temporal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB:       temporal
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - temporal-net
+
+  # ── Temporal workflow engine (required by Postiz scheduler) ──────────────────────────
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    container_name: mani-temporal
+    restart: unless-stopped
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      DB:           "postgres12"
+      DB_PORT:      "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD:  temporal
+      POSTGRES_SEEDS: temporal-postgres
+    networks:
+      - hub
+      - temporal-net
+
+  # ── n8n (automation / agent backbone) ────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: mani-n8n
+    restart: unless-stopped
+    depends_on:
+      n8n-postgres:
+        condition: service_healthy
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      # ── Database ─────────────────────────────────────────────────────────────────
+      DB_TYPE:            "postgresdb"
+      DB_POSTGRESDB_HOST: "n8n-postgres"
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: "${N8N_DB:-n8ndb}"
+      DB_POSTGRESDB_USER:     "${N8N_DB_USER:-n8n}"
+      DB_POSTGRESDB_PASSWORD: "${N8N_DB_PASSWORD}"
+      # ── Auth / access ─────────────────────────────────────────────────────────────
+      N8N_BASIC_AUTH_ACTIVE:   "true"
+      N8N_BASIC_AUTH_USER:     "${N8N_USER:-varun}"
+      N8N_BASIC_AUTH_PASSWORD: "${N8N_PASSWORD}"
+      N8N_HOST:                "${N8N_HOST:-localhost}"
+      N8N_PORT:                "5678"
+      N8N_PROTOCOL:            "${N8N_PROTOCOL:-http}"
+      WEBHOOK_URL:             "${N8N_WEBHOOK_URL:-http://localhost:5678}"
+      # ── LLM — point at the gateway (Phase 1 wires this up fully) ─────────────────
+      # n8n's OpenAI-compatible AI nodes read OPENAI_API_KEY + base URL from credentials
+      # We store the gateway URL/key as n8n credentials (set in n8n UI after first start)
+      # ── Execution ─────────────────────────────────────────────────────────────────
+      EXECUTIONS_PROCESS:      "main"
+      EXECUTIONS_DATA_PRUNE:   "true"
+      EXECUTIONS_DATA_MAX_AGE: "336"  # 14 days
+      # ── Security ──────────────────────────────────────────────────────────────────
+      N8N_SECURE_COOKIE:       "false"  # set to true behind HTTPS
+      N8N_ENCRYPTION_KEY:      "${N8N_ENCRYPTION_KEY}"
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./propmarket/n8n-workflows:/home/node/.n8n/workflows-import:ro
+    networks:
+      - hub
+
+  # ── n8n PostgreSQL ─────────────────────────────────────────────────────────────────
+  n8n-postgres:
+    image: postgres:17-alpine
+    container_name: mani-n8n-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     "${N8N_DB_USER:-n8n}"
+      POSTGRES_PASSWORD: "${N8N_DB_PASSWORD}"
+      POSTGRES_DB:       "${N8N_DB:-n8ndb}"
+    volumes:
+      - n8n-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER:-n8n} -d ${N8N_DB:-n8ndb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hub

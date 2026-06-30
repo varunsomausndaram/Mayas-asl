@@ -1,0 +1,67 @@
+# LiteLLM proxy config — Mani Marketing
+# Translates OpenAI-compat calls to any provider.
+# Edit this file and restart the litellm container to add/remove models.
+# Full docs: https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  # ── Anthropic (Claude) ────────────────────────────────────────────────────
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-opus-4-8
+    litellm_params:
+      model: anthropic/claude-opus-4-8
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # ── OpenAI ────────────────────────────────────────────────────────────────
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  # ── Groq (fast inference) ─────────────────────────────────────────────────
+  - model_name: llama3-70b-groq
+    litellm_params:
+      model: groq/llama3-70b-8192
+      api_key: os.environ/GROQ_API_KEY
+
+  # ── Ollama (local, via ollama sidecar) ────────────────────────────────────
+  # These only work when the ollama service is running with the model pulled.
+  - model_name: llama3.1
+    litellm_params:
+      model: ollama/llama3.1
+      api_base: http://ollama:11434
+
+  - model_name: llama3.1:70b
+    litellm_params:
+      model: ollama/llama3.1:70b
+      api_base: http://ollama:11434
+
+  - model_name: mistral
+    litellm_params:
+      model: ollama/mistral
+      api_base: http://ollama:11434
+
+litellm_settings:
+  # Route tool-calling-capable models through their native tool-call path;
+  # everything else falls back to JSON prompt injection (handled by our gateway).
+  drop_params: true
+  request_timeout: 120
+  num_retries: 2
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Allow the hub and n8n to call the proxy from the Docker network
+  allowed_ips: []  # empty = all IPs allowed (internal network only)
