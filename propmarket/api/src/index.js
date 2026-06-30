@@ -12,6 +12,7 @@ const campaignsRouter     = require('./routes/campaigns');
 const leadsRouter         = require('./routes/leads');
 const guestsRouter        = require('./routes/guests');
 const queueRouter         = require('./routes/queue');
+const analyticsRouter     = require('./routes/analytics');
 
 const app  = express();
 const PORT = parseInt(process.env.PROPMARKET_API_PORT || '3002', 10);
@@ -28,10 +29,14 @@ app.get('/inquire', (_req, res) =>
   res.sendFile(path.join(__dirname, '../public/lead-form.html'))
 );
 
-// ── Approval queue UI ──────────────────────────────────────────────────────
+// ── Admin UI pages ─────────────────────────────────────────────────────────
 app.get('/admin/queue', (_req, res) =>
   res.sendFile(path.join(__dirname, '../public/admin/queue.html'))
 );
+app.get('/admin/dashboard', (_req, res) =>
+  res.sendFile(path.join(__dirname, '../public/admin/dashboard.html'))
+);
+app.get('/admin', (_req, res) => res.redirect('/admin/dashboard'));
 
 // ── API routes ─────────────────────────────────────────────────────────────
 app.use('/api/property-lines',   propertyLinesRouter);
@@ -42,6 +47,7 @@ app.use('/api/campaign-runs',    campaignsRouter);
 app.use('/api/leads',            leadsRouter);
 app.use('/api/past-guests',      guestsRouter);
 app.use('/api/queue',            queueRouter);
+app.use('/api/analytics',        analyticsRouter);
 
 // ── Error handler ──────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {

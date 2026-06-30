@@ -28,8 +28,8 @@ propmarket/
 | Phase | Description                        | Status  |
 |-------|------------------------------------|---------|
 | 0     | Fork & bring-up                    | ✅ done |
-| 1     | Switchable LLM Gateway             | pending |
-| 2     | Real-estate core (properties)      | pending |
-| 3     | Leads + outreach + agent           | pending |
-| 4     | Analytics overlay + polish         | pending |
+| 1     | Switchable LLM Gateway             | ✅ done |
+| 2     | Real-estate core (properties)      | ✅ done |
+| 3     | Leads + outreach + agent           | ✅ done |
+| 4     | Analytics overlay + polish         | ✅ done |
 | 5     | CRM / RAG / MCP (optional)         | pending |

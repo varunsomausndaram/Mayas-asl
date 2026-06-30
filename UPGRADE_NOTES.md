@@ -55,4 +55,10 @@ whether to retire our gateway or keep it as the single-provider interface.
 
 ## Phase 4 — Analytics overlay + polish
 
-> (To be filled in.)
+No Postiz core files were modified in Phase 4.
+
+Custom analytics (pm_analytics_events, pm_funnel_summary view) live entirely
+in the propmarket-api service's own migrations — zero overlap with Postiz tables.
+
+Dashboard and queue UIs are served by propmarket-api at :3002/admin/* — they
+are completely independent of Postiz's frontend.
