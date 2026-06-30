@@ -178,6 +178,12 @@ services:
       PROPMARKET_API_PORT: "3002"
       LLM_GATEWAY_URL:     "http://llm-gateway:3001"
       MIGRATIONS_DIR:      "/migrations"
+      # Postiz API (for approval queue → post execution)
+      POSTIZ_INTERNAL_URL: "http://postiz:5000"
+      POSTIZ_API_KEY:      "${POSTIZ_API_KEY:-}"
+      # n8n email/SMS webhooks (for approval queue execution)
+      N8N_EMAIL_WEBHOOK_URL: "${N8N_EMAIL_WEBHOOK_URL:-}"
+      N8N_SMS_WEBHOOK_URL:   "${N8N_SMS_WEBHOOK_URL:-}"
     volumes:
       - ./propmarket/migrations:/migrations:ro
     healthcheck:

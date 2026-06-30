@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Approval Queue — Mani Marketing</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #222535;
+    --border: #2d3142; --accent: #6366f1;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --success: #4ade80; --danger: #f87171; --warn: #facc15;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.9rem 1rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .header h1 { font-size: 1rem; font-weight: 700; }
+  .badge { background: var(--accent); color: #fff; border-radius: 999px; font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.5rem; margin-left: 0.5rem; }
+  .tabs { display: flex; gap: 0; overflow-x: auto; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .tab { padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .list { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.65rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.5rem; }
+  .card-title { font-weight: 600; font-size: 0.9rem; }
+  .card-meta { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+  .chip { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+  .chip-post    { background: #1e3a5f; color: #60a5fa; }
+  .chip-lead    { background: #14532d; color: var(--success); }
+  .chip-winback { background: #3b1f66; color: #c084fc; }
+  .chip-sms     { background: #422006; color: #fb923c; }
+  .draft { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem; font-size: 0.82rem; line-height: 1.5; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; margin: 0.5rem 0; }
+  .reasoning { font-size: 0.75rem; color: var(--muted); font-style: italic; margin-bottom: 0.5rem; }
+  .actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  .btn { padding: 0.55rem 0.9rem; border-radius: 6px; border: none; font-size: 0.82rem; font-weight: 600; cursor: pointer; flex: 1; }
+  .btn-approve { background: #14532d; color: var(--success); }
+  .btn-reject  { background: #450a0a; color: var(--danger); }
+  .btn-edit    { background: var(--surface2); color: var(--text); flex: 0.7; }
+  .empty { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 0.9rem; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 14px 14px 0 0; padding: 1.25rem; width: 100%; max-height: 80vh; overflow-y: auto; }
+  .modal h2 { font-size: 1rem; margin-bottom: 0.75rem; }
+  textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 0.65rem; font-size: 0.85rem; line-height: 1.5; resize: vertical; min-height: 120px; }
+  .modal-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  .loading { text-align: center; color: var(--muted); padding: 2rem; }
+  .ts { font-size: 0.7rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center">
+    <h1>Approval Queue</h1>
+    <span class="badge" id="pending-count">…</span>
+  </div>
+  <button onclick="loadQueue()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem">↺</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="setFilter('pending',this)">Pending</div>
+  <div class="tab" onclick="setFilter('approved',this)">Approved</div>
+  <div class="tab" onclick="setFilter('sent',this)">Sent</div>
+  <div class="tab" onclick="setFilter('rejected',this)">Rejected</div>
+  <div class="tab" onclick="setFilter('',this)">All</div>
+</div>
+
+<div class="list" id="queue-list"><div class="loading">Loading…</div></div>
+
+<!-- Edit modal -->
+<div class="modal-overlay" id="edit-modal" onclick="closeModal(event)">
+  <div class="modal">
+    <h2>Edit draft</h2>
+    <textarea id="edit-textarea" rows="6"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-approve" onclick="submitEdit()">Approve with edit</button>
+      <button class="btn btn-edit" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/queue';
+let currentFilter = 'pending';
+let editingId = null;
+
+const CHIP_MAP = {
+  post_draft:    ['Post', 'chip-post'],
+  campaign_step: ['Campaign', 'chip-post'],
+  lead_reply:    ['Lead reply', 'chip-lead'],
+  winback_email: ['Win-back', 'chip-winback'],
+  winback_sms:   ['Win-back SMS', 'chip-sms'],
+  social_reply:  ['Social reply', 'chip-post'],
+};
+
+function setFilter(status, el) {
+  currentFilter = status;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadQueue();
+}
+
+async function loadQueue() {
+  document.getElementById('queue-list').innerHTML = '<div class="loading">Loading…</div>';
+  const params = new URLSearchParams();
+  if (currentFilter) params.set('status', currentFilter);
+  const r = await fetch(`${API}?${params}`);
+  const items = await r.json();
+
+  // Update pending badge
+  const stats = await fetch(`${API}/stats`).then(r => r.json()).catch(() => []);
+  const pendingCount = stats.filter(s => s.status === 'pending').reduce((sum, s) => sum + parseInt(s.count), 0);
+  document.getElementById('pending-count').textContent = pendingCount || '0';
+
+  const list = document.getElementById('queue-list');
+  if (!items.length) {
+    list.innerHTML = `<div class="empty">No ${currentFilter || ''} items</div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(item => {
+    const [chipLabel, chipClass] = CHIP_MAP[item.action_type] || [item.action_type, 'chip-post'];
+    const who = item.recipient_name || item.lead_name || item.guest_name || '';
+    const property = item.property_name || '';
+    const ts = new Date(item.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const isPending = item.status === 'pending';
+
+    return `
+    <div class="card" data-id="${item.id}">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${property}${who ? ' · ' + who : ''}</div>
+          <div class="card-meta"><span class="ts">${ts}</span> · ${item.channel || '—'}</div>
+        </div>
+        <span class="chip ${chipClass}">${chipLabel}</span>
+      </div>
+      ${item.agent_reasoning ? `<div class="reasoning">💡 ${escHtml(item.agent_reasoning)}</div>` : ''}
+      <div class="draft">${escHtml(item.draft_content)}</div>
+      ${isPending ? `
+      <div class="actions">
+        <button class="btn btn-approve" onclick="approve(${item.id})">✓ Approve</button>
+        <button class="btn btn-edit"    onclick="openEdit(${item.id}, \`${escJs(item.draft_content)}\`)">✎ Edit</button>
+        <button class="btn btn-reject"  onclick="reject(${item.id})">✗</button>
+      </div>` : `<div class="card-meta" style="margin-top:.5rem">Status: <b>${item.status}</b></div>`}
+    </div>`;
+  }).join('');
+}
+
+async function approve(id, edited) {
+  const body = {};
+  if (edited) body.edited_content = edited;
+  await fetch(`${API}/${id}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  loadQueue();
+}
+
+async function reject(id) {
+  await fetch(`${API}/${id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  loadQueue();
+}
+
+function openEdit(id, content) {
+  editingId = id;
+  document.getElementById('edit-textarea').value = content;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = null;
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('edit-modal')) closeEditModal();
+}
+
+function submitEdit() {
+  const content = document.getElementById('edit-textarea').value.trim();
+  if (!content || !editingId) return;
+  closeEditModal();
+  approve(editingId, content);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escJs(s) {
+  return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
+}
+
+loadQueue();
+setInterval(loadQueue, 30000); // auto-refresh every 30s
+</script>
+</body>
+</html>

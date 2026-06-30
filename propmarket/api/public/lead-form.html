@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inquiry — Mani Marketing</title>
+<style>
+  :root { --accent: #6366f1; --bg: #f8fafc; --surface: #fff; --text: #1e293b; --muted: #64748b; --border: #e2e8f0; --radius: 10px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; width: 100%; max-width: 480px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 1.5rem; }
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
+  input, select, textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.75rem; font-size: 0.95rem; background: var(--bg); color: var(--text); outline: none; transition: border-color .15s; font-family: inherit; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+  button { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 0.75rem; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; transition: opacity .15s; }
+  button:hover { opacity: 0.88; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .success { text-align: center; padding: 2rem; }
+  .success h2 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+  .success p { color: var(--muted); }
+  .req { color: #ef4444; margin-left: 2px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="form-view">
+    <h1 id="page-title">Property Inquiry</h1>
+    <p class="subtitle" id="page-subtitle">Fill out the form below and we'll get back to you shortly.</p>
+
+    <form id="lead-form">
+      <input type="hidden" id="property_id" name="property_id">
+
+      <div class="field">
+        <label>Your name <span class="req">*</span></label>
+        <input type="text" name="name" required placeholder="Jane Smith">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="jane@example.com">
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" name="phone" placeholder="+1 555 000 0000">
+      </div>
+      <div class="field">
+        <label>Desired move-in / check-in date</label>
+        <input type="date" name="move_in_date">
+      </div>
+      <div class="field">
+        <label>Length of stay</label>
+        <select name="stay_duration">
+          <option value="">— select —</option>
+          <option value="1 week">1 week</option>
+          <option value="2 weeks">2 weeks</option>
+          <option value="1 month">1 month</option>
+          <option value="Fall semester">Fall semester</option>
+          <option value="Spring semester">Spring semester</option>
+          <option value="Full academic year">Full academic year</option>
+          <option value="Flexible">Flexible</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Message</label>
+        <textarea name="message" placeholder="Tell us what you're looking for…"></textarea>
+      </div>
+      <button type="submit" id="submit-btn">Send inquiry</button>
+    </form>
+  </div>
+
+  <div id="success-view" class="success" style="display:none">
+    <div style="font-size:2.5rem;margin-bottom:.75rem">🏡</div>
+    <h2>Thanks for reaching out!</h2>
+    <p>We'll be in touch shortly. We look forward to hosting you.</p>
+  </div>
+</div>
+
+<script>
+// Read property_id from URL: /inquire?property=42
+const params = new URLSearchParams(location.search);
+const propertyId = params.get('property');
+
+if (propertyId) {
+  document.getElementById('property_id').value = propertyId;
+  // Optionally load property name from the API to personalise the heading
+  fetch(`/api/properties/${propertyId}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(p => {
+      if (!p) return;
+      document.getElementById('page-title').textContent = `Inquire about ${p.name}`;
+      document.getElementById('page-subtitle').textContent =
+        `${p.location || ''} · ${p.beds || '?'}bd/${p.baths || '?'}ba · From $${p.base_rate || '?'}/stay`;
+    })
+    .catch(() => {});
+}
+
+document.getElementById('lead-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  // Remove empty strings
+  Object.keys(data).forEach(k => { if (!data[k]) delete data[k]; });
+
+  try {
+    const r = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (r.ok) {
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('success-view').style.display = 'block';
+    } else {
+      throw new Error('Server error');
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Send inquiry';
+    alert('Something went wrong. Please try again.');
+  }
+});
+</script>
+</body>
+</html>
