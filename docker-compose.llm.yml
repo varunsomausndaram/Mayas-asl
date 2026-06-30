@@ -1,0 +1,71 @@
+# Mani Marketing — Optional LLM sidecar services
+# Use with:  docker compose -f docker-compose.yml -f docker-compose.llm.yml up -d
+#
+# LiteLLM proxy:  translates native Anthropic (Claude) + 100+ other providers
+#                 into a single OpenAI-compatible endpoint.
+# Ollama:         runs local models (Llama 3, Mistral, etc.) on the server.
+#
+# Once either sidecar is running, point .env LLM_BASE_URL at it:
+#   LiteLLM:  LLM_BASE_URL=http://litellm:4000/v1
+#   Ollama:   LLM_BASE_URL=http://ollama:11434/v1
+
+version: "3.9"
+
+networks:
+  hub:
+    external: true
+
+volumes:
+  ollama-models:
+  litellm-data:
+
+services:
+
+  # ── LiteLLM proxy ──────────────────────────────────────────────────────────────────
+  # Translates the hub's OpenAI-compat calls to Anthropic/Gemini/Cohere/etc.
+  # Config: ./litellm/config.yaml
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: mani-litellm
+    restart: unless-stopped
+    ports:
+      - "${LITELLM_PORT:-4000}:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+      - litellm-data:/app/data
+    environment:
+      LITELLM_MASTER_KEY:  "${LITELLM_MASTER_KEY:-sk-mani-local}"
+      ANTHROPIC_API_KEY:   "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY:      "${OPENAI_API_KEY:-}"
+      GROQ_API_KEY:        "${GROQ_API_KEY:-}"
+      TOGETHER_API_KEY:    "${TOGETHER_API_KEY:-}"
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - hub
+
+  # ── Ollama (local model runner) ─────────────────────────────────────────────────────
+  # To pull a model:  docker exec mani-ollama ollama pull llama3.1
+  # To use GPU:       uncomment the deploy section below
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mani-ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # Uncomment to use NVIDIA GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    networks:
+      - hub
